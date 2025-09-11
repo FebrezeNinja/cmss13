@@ -429,6 +429,8 @@
 	icon_state = "m6h"
 	item_state = "m6h"
 
+	unacidable = FALSE
+	explo_proof = FALSE
 	current_mag = /obj/item/ammo_magazine/rocket/brute
 	skill_locked = TRUE
 	var/f_aiming_time = 4 SECONDS
