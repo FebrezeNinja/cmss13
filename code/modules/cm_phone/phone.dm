@@ -670,3 +670,78 @@ GLOBAL_LIST_EMPTY_TYPED(transmitters, /obj/structure/transmitter)
 	name = "rotary telephone"
 	icon_state = "rotary_phone"
 	desc = "The finger plate is a little stiff."
+
+/obj/structure/transmitter/portable
+	name = "portable telephone"
+	icon_state = "portable_phone"
+	desc = "A portable telephone that has been deployed and made ready for use. Click-drag the device towards you to pick it up."
+	phone_category = PHONE_MARINE
+
+/obj/structure/transmitter/portable/Initialize(mapload, ...)
+	var/area/deploy_area = get_area(src)
+	phone_id = sanitize_area(deploy_area.name)
+	. = ..()
+
+
+/obj/item/device/portable_telephone
+	name = "portable telephone kit"
+	icon = 'icons/obj/structures/phone.dmi'
+	icon_state = "portable_phone_packed"
+	desc = "A portable telephone, currently pack for easy transportation. Needs to be deployed to be used. Activate the device inhand to deploy it."
+	w_class = SIZE_MEDIUM
+
+/obj/item/device/portable_telephone/attack_self(mob/user) //activate item version fax inhand to deploy
+	if(!ishuman(user))
+		return
+	var/turf/deploy_turf = get_turf(user)
+	if(istype(deploy_turf, /turf/open))
+		var/turf/open/floor = deploy_turf
+		var/area/area = get_area(user)
+		if(!floor.allow_construction || !area.allow_construction)
+			to_chat(user, SPAN_WARNING("You cannot deploy [src] here, find a more secure surface!"))
+			return FALSE
+	var/fail = FALSE
+	if(deploy_turf.density)
+		fail = TRUE
+	else
+		var/static/list/blocking_types = typecacheof(list(
+			/obj/structure/machinery/defenses,
+			/obj/structure/window,
+			/obj/structure/windoor_assembly,
+			/obj/structure/machinery/door,
+		))
+		for(var/obj/blockingobj in deploy_turf.contents)
+			if(blockingobj.density && !(blockingobj.flags_atom & ON_BORDER))
+				fail = TRUE
+				break
+			if(is_type_in_typecache(blockingobj, blocking_types))
+				fail = TRUE
+				break
+	if(fail)
+		to_chat(user, SPAN_WARNING("You can't deploy [src] here, something is in the way."))
+		return
+	to_chat(user,  SPAN_NOTICE("You begin to deploy [src]..."))
+	if(do_after(user, 4.5 SECONDS, INTERRUPT_ALL|BEHAVIOR_IMMOBILE, BUSY_ICON_BUILD))
+		to_chat(user, SPAN_NOTICE("You deploy [src]."))
+		new /obj/structure/transmitter/portable(deploy_turf)
+		qdel(src)
+		return
+	return ..()
+
+/obj/structure/transmitter/portable/MouseDrop(over_object, src_location, over_location) //Drag the deployed fax onto you to pick it up.
+	if(!ishuman(usr))
+		return
+	var/mob/living/carbon/human/user = usr
+	if(over_object == user && in_range(src, user))
+		if(!attached_to || attached_to.loc != src)
+			to_chat(user, SPAN_NOTICE("The phone receiver is missing. You need to reattach it first."))
+			return
+		to_chat(user, SPAN_NOTICE("You begin to pick up [src]..."))
+		if(do_after(user, 4.5 SECONDS, INTERRUPT_ALL|BEHAVIOR_IMMOBILE, BUSY_ICON_BUILD))
+			playsound(src.loc, 'sound/items/Ratchet.ogg', 25, 1)
+			to_chat(user, SPAN_NOTICE("You pick up [src]."))
+			var/obj/item/device/portable_telephone/packed_phone = new()
+			user.put_in_hands(packed_phone)
+			qdel(src)
+			return
+		return ..()
